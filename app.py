@@ -19,7 +19,8 @@ st.set_page_config(
 def load_data():
     """Loads the core game DataFrames and ensures crucial columns exist."""
     # Replace with your actual file paths
-    df = pd.read_csv('data/games_clean.csv') 
+    df_clean = pd.read_csv('data/games_clean.csv') 
+    df_topten = pd.read_csv('data/df_topten.csv')
     df_free_topten = pd.read_csv('data/df_free_topten.csv')
     df_paid_topten = pd.read_csv('data/df_paid_topten.csv')
     
