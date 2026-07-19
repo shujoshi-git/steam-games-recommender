@@ -325,7 +325,7 @@ with st.container(border=True):
     st.markdown("### 🔍 Select up to **3 games**")
     
     selected_games = st.multiselect(
-        "Start typing to search and select games from our database:",
+        "Start typing to search and select games from our database over over 100,000 PC games available on Steam:",
         options=all_available_games,
         max_selections=3,
         placeholder="Type to search games..."
