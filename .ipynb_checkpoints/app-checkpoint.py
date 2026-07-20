@@ -1,87 +1,51 @@
+# This file is the scource code for deploying the recommendation algorithm constructed in recommender_ipynb as a Web App to Streamlit.
+# From our cleaned dataset df_clean, we use the features Website and Header image in the UI of the app to build clickable links in the app. 
+
+
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.feature_extraction.text import CountVectorizer  # Swapped to CountVectorizer!
+from sklearn.feature_extraction.text import CountVectorizer  
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import hstack
 
 # Set up a clean, wide page layout
-st.set_page_config(
-    page_title="Steam Games Recommender",
-    page_icon="🎮",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title = "Steam Games Recommender", page_icon = "🎮", layout = "wide", initial_sidebar_state = "expanded")
+
 st.markdown(
     """
     <style>
-        /* 1. Completely hide the sidebar collapse/expand trigger button (both open and closed states) */
-        button[aria-label="Collapse sidebar"], 
-        button[aria-label="Expand sidebar"],
-        [data-testid="collapsedControl"],
-        .st-emotion-cache-198g9b8, 
-        .st-emotion-cache-79elbk {
-            display: none !important;
-            visibility: hidden !important;
-            width: 0px !important;
-            height: 0px !important;
-        }
+        
+        /* 1. Change button color to blue. */
+        div.stButton > button[kind="primary"] {background-color: #1078ff !important; color: white !important; border: none !important;}
+        
 
-        /* 2. Prevent the user from dragging or resizing the sidebar manually */
-        [data-testid="stSidebarResizer"] {
-            display: none !important;
-        }
+        /* 2. Change the background and text color of selected items in search field. */
+        span[data-baseweb="tag"] {background-color: #1078ff !important; color: white !important;}
+        
 
-        /* 3. Custom color override to make the primary button match Steam blue */
-        div.stButton > button[kind="primary"] {
-            background-color: #1078ff !important;
-            color: white !important;
-            border: none !important;
-        }
+        /* 3. Ensure the "x" icon inside the tags stays readable. */
+        span[data-baseweb="tag"] svg {fill: hite !important;}
 
-        /* 4. Soft blue hover state */
-        div.stButton > button[kind="primary"]:hover {
-            background-color: #4799ff !important;
-        }
-        /* 5. Change the background and text color of selected items in multiselect */
-        span[data-baseweb="tag"] {
-            background-color: #1078ff !important;
-            color: white !important;
-        }
 
-        /* Ensure the little "X" close icon inside the tags stays readable (white) */
-        span[data-baseweb="tag"] svg {
-            fill: white !important;
-        }
-        /* 6. If 3 games are selected, hide the input cursor so the user can't click to open the dropdown */
-        div[data-baseweb="select"]:has(span[data-baseweb="tag"]:nth-of-type(3)) input {
-            display: none !important;
-        }
-
-        /* 7. If 3 games are selected, instantly force-hide any active dropdown/popover menus entirely */
+        /* 4. When 3 games are selected, hide the dropdown. */
         html:has(span[data-baseweb="tag"]:nth-of-type(3)) div[role="listbox"],
-        html:has(span[data-baseweb="tag"]:nth-of-type(3)) div[data-baseweb="popover"] {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            height: 0px !important;
-        }
+        html:has(span[data-baseweb="tag"]:nth-of-type(3)) div[data-baseweb="popover"] {display: none !important; visibility: hidden !important; opacity: 0 
+        !important; height: 0px !important;}
     </style>
     """,
-    unsafe_allow_html=True
-)
+    unsafe_allow_html = True)
 
 
 @st.cache_data
 def load_data():
-    """Loads the core game DataFrames and ensures crucial columns exist."""
+    
     df_clean = pd.read_csv('data/games_clean.csv') 
-    # Load your top pre-sorted overall popular games for fallback routine
     df_topten = pd.read_csv('data/df_topten.csv')
     df_free_topten = pd.read_csv('data/df_free_topten.csv')
     df_paid_topten = pd.read_csv('data/df_paid_topten.csv')
     
-    # Fill empty characteristics strings to prevent vectorization errors
+    # Fill empty characteristics strings.
     df_clean['Characteristics'] = df_clean['Characteristics'].fillna('')
     df_topten['Characteristics'] = df_topten['Characteristics'].fillna('')
     df_paid_topten['Characteristics'] = df_paid_topten['Characteristics'].fillna('')
@@ -90,128 +54,163 @@ def load_data():
     return df_clean, df_paid_topten, df_free_topten, df_topten
 
 
+    
+
+# ---------Recommender architecture starts: taken as-it-is from recommender.ipynb-----------   
+
 @st.cache_resource
-def load_matrices(df_clean, df_paid_topten, df_free_topten):
-    """
-    Fits CountVectorizer and builds the hybrid, feature-stacked candidate matrices 
-    matching your notebook's exact count-based logic.
-    """
-    # 1. Initialize CountVectorizer using a regex pattern that preserves tags 
-    # like '2.5d', 'co-op', and 'lgbtq+' as single whole tokens.
-    char_vectorizer = CountVectorizer(
-        token_pattern=r'[a-zA-Z0-9\.\-\+]+',
-        lowercase=True
-    )
-    char_vectorizer.fit(df_clean['Characteristics'])
+
+# This function builds the matrices that the RS will accept onto which it can compute cosine similarity.
+
+def build_matrices(df_clean, df_paid_topten, df_free_topten):
+    char_vectorizer = CountVectorizer(token_pattern = r'(?u)\b\w+\b') 
+    char_vectorizer.fit(df_topten['Characteristics'].fillna(''))
+
+    # I. Matrix for paid games (Using 50/40/10 weights)
+
+    # Transform (uses the master vocabulary)
+    char_sparse_paid = char_vectorizer.transform(df_paid_topten['Characteristics'].fillna(''))
+    char_weighted_paid = char_sparse_paid * np.sqrt(0.5)
     
-    # 2. Transform and weight characteristics (50% -> weight factor is sqrt(0.5))
-    X_paid_char = char_vectorizer.transform(df_paid_topten['Characteristics']) * np.sqrt(0.5)
-    X_free_char = char_vectorizer.transform(df_free_topten['Characteristics']) * np.sqrt(0.5)
+    # Extract and weight votes & revenue.
+    votes_weighted_paid = (df_paid_topten['Bayesian votes'].values * np.sqrt(0.4)).reshape(-1, 1) # reshape(-1,1) converts a 1d matrix to 2d so that hstack works correctly.
+    revenue_weighted_paid = (df_paid_topten['Estimated yearly revenue'].values * np.sqrt(0.1)).reshape(-1, 1)
     
-    # 3. Extract and weight numerical columns (already scaled 0 to 1 in your CSVs)
-    votes_paid = (df_paid_topten['Bayesian votes'].values * np.sqrt(0.4)).reshape(-1, 1)
-    revenue_paid = (df_paid_topten['Estimated yearly revenue'].values * np.sqrt(0.1)).reshape(-1, 1)
+    # Stack to create the paid master feature matrix.
+    X_paid = hstack([char_weighted_paid, votes_weighted_paid, revenue_weighted_paid]).tocsr()
     
-    votes_free = (df_free_topten['Bayesian votes'].values * np.sqrt(0.4)).reshape(-1, 1)
-    owners_free = (df_free_topten['Estimated owners'].values * np.sqrt(0.1)).reshape(-1, 1)
     
-    # 4. Stack features to create the hybrid evaluation space
-    X_paid = hstack([X_paid_char, votes_paid, revenue_paid]).tocsr()
-    X_free = hstack([X_free_char, votes_free, owners_free]).tocsr()
+    # II. Matrix for free games (Using 50/40/10 weights)
     
+    
+    # Transform (uses the master vocabulary).
+    char_sparse_free = char_vectorizer.transform(df_free_topten['Characteristics'].fillna(''))
+    char_weighted_free = char_sparse_free * np.sqrt(0.5)
+    
+    # Extract and weight votes & owners.
+    votes_weighted_free = (df_free_topten['Bayesian votes'].values * np.sqrt(0.4)).reshape(-1, 1)
+    owners_weighted_free = (df_free_topten['Estimated owners'].values * np.sqrt(0.1)).reshape(-1, 1)
+    
+    # Stack to create the free master feature matrix.
+    X_free = hstack([char_weighted_free, votes_weighted_free, owners_weighted_free]).tocsr()
+
     return char_vectorizer, X_paid, X_free
 
 
-# Initialize data and models cleanly
+# Initialize data and models.
 df_clean, df_paid_topten, df_free_topten, df_topten = load_data()
-char_vectorizer, X_paid, X_free = load_matrices(df_clean, df_paid_topten, df_free_topten)
+char_vectorizer, X_paid, X_free = build_matrices(df_clean, df_paid_topten, df_free_topten)
 
 
-def recommend_games(input_names, df_paid_topten, X_paid, df_free_topten, X_free, df_master, char_vectorizer, df_topten):
-    """
-    Recommends 8 paid games and 2 free games using your notebook's hybrid 
-    feature-stacked vectorizer architecture.
-    """
-    # Standardize input titles for robust matching
-    input_titles_clean = [title.strip().lower() for title in input_names]
+# Recommender algorithm: Recommends 8 paid games and 2 free games based on a list of input games.
+
+
+#  Function Parameters:
+#    - input_titles: List of 3 strings (the user's input games)
+#    - df_paid_topten: Subset of cleaned & filtered dataset (df_topten) for paid recommendations
+#    - X_paid: Weighted feature matrix for df_paid_topten
+#    - df_free_topten: Subset of cleaned & filtered dataset (df_topten) for free recommendations
+#    - X_free: Weighted feature matrix for df_free_topten
+#    - df_master: Cleaned & filtered master dataset (df_topten)
+#    - char_vectorizer: Count vectorizer fit on Characteristics
+
+
+def recommend_games(input_titles, df_paid_topten, X_paid, df_free_topten, X_free, df_master, char_vectorizer):
     
-    # 1. Locate the input games in the MASTER database
+    from sklearn.metrics.pairwise import cosine_similarity
+    import numpy as np
+    import pandas as pd
+    from scipy.sparse import hstack
+
+    # Standardize input titles for robust matching
+    input_titles_clean = [title.strip().lower() for title in input_titles]
+    
+    # 1. Locate the input games in df_master
     matched_games = df_master[df_master['Name'].str.strip().str.lower().isin(input_titles_clean)]
     
-    # Fallback 1: None of the input games exist on Steam at all
+    # Check if we have at least one valid game in df_master.
+    
     if matched_games.empty:
+        # Fallback 1: None of the input games exist on Steam at all
         message = "We don't have enough information to recommend games based on the games you input but here are some great games you can check out!"
-        fallback_paid = df_paid_topten.sort_values(by='Bayesian votes', ascending=False).head(8)
-        fallback_free = df_free_topten.sort_values(by='Bayesian votes', ascending=False).head(2)
+        fallback_paid = df_paid_topten.sort_values(by = 'Bayesian votes', ascending = False).head(8)
+        fallback_free = df_free_topten.sort_values(by = 'Bayesian votes', ascending = False).head(2)
         return fallback_paid, fallback_free, message
     
-    # Check if matched inputs actually have characteristics
+
+# Check if all input games are missing Characteristics data in our dataset.
+
+    
+    # Clean up the strings to check for empty/NaN values
     has_characteristics = matched_games['Characteristics'].fillna('').str.strip() != ""
     
-    # Fallback 2: If ALL matched games have missing Characteristics
-    if not has_characteristics.any():
+    if not has_characteristics.any():  # If ALL matched games have missing Characteristics
         message = "We don't have enough information to recommend games based on the games you input but here are some great games you can check out!"
-        fallback_paid = df_paid_topten.sort_values(by='Bayesian votes', ascending=False).head(8)
-        fallback_free = df_free_topten.sort_values(by='Bayesian votes', ascending=False).head(2)
+        fallback_paid = df_paid_topten.sort_values(by = 'Bayesian votes', ascending=False).head(8)
+        fallback_free = df_free_topten.sort_values(by = 'Bayesian votes', ascending=False).head(2)
         return fallback_paid, fallback_free, message
 
-    # ----------------------------------------------------
-    # CORE ROUTINE: BUILD QUERY VECTORS FOR THE INPUT PROFILE
-    # ----------------------------------------------------
+    
+    # Construct feature vectors for input games.
+    
+    # Filter matched games down to the ones that actually have characteristics.
     profile_games = matched_games[has_characteristics]
     
-    # Project characteristics (50%)
+    # Project their characteristics into the vectorizer space and apply characteristics weight (50%)
     char_sparse_query = char_vectorizer.transform(profile_games['Characteristics'].fillna(''))
     char_weighted_query = char_sparse_query * np.sqrt(0.5)
     
-    # Extract numerical matrices (ensuring they are cast to float and any NaN is treated as 0.0)
-    votes_query = pd.to_numeric(profile_games['Bayesian votes'], errors='coerce').fillna(0.0).values.reshape(-1, 1)
-    revenue_query = pd.to_numeric(profile_games['Estimated yearly revenue'], errors='coerce').fillna(0.0).values.reshape(-1, 1)
-    owners_query = pd.to_numeric(profile_games['Estimated owners'], errors='coerce').fillna(0.0).values.reshape(-1, 1)
+    # Extract popularity metrics
+    votes_query = profile_games['Bayesian votes'].values.reshape(-1, 1)
+    revenue_query = profile_games['Estimated yearly revenue'].values.reshape(-1, 1)
+    owners_query = profile_games['Estimated owners'].values.reshape(-1, 1)
     
-    # A. Build the query vector specifically designed for comparing with PAID games
+    # Build the input games' vector for comparing with paid games
     votes_weighted_query_paid = (votes_query * np.sqrt(0.4)).reshape(-1, 1)
     revenue_weighted_query_paid = (revenue_query * np.sqrt(0.1)).reshape(-1, 1)
     
+    # Stack the features for the inputs and take the mean to make a single 1D query vector
     query_matrix_paid = hstack([char_weighted_query, votes_weighted_query_paid, revenue_weighted_query_paid]).tocsr()
-    # Safely convert to a dense numpy array before taking the mean
-    query_vector_paid = np.asarray(np.mean(query_matrix_paid.toarray(), axis=0)).reshape(1, -1)
+    query_vector_paid = np.mean(query_matrix_paid.toarray(), axis=0).reshape(1, -1)
 
-    # B. Build the query vector specifically designed for comparing with FREE games
+    # Build the query vector for comparing with free games.
     votes_weighted_query_free = (votes_query * np.sqrt(0.4)).reshape(-1, 1)
     owners_weighted_query_free = (owners_query * np.sqrt(0.1)).reshape(-1, 1)
     
     query_matrix_free = hstack([char_weighted_query, votes_weighted_query_free, owners_weighted_query_free]).tocsr()
-    # Safely convert to a dense numpy array before taking the mean
-    query_vector_free = np.asarray(np.mean(query_matrix_free.toarray(), axis=0)).reshape(1, -1)
+    query_vector_free = np.mean(query_matrix_free.toarray(), axis=0).reshape(1, -1)
 
-    # ----------------------------------------------------
-    # 2. COMPUTE SIMILARITIES AND GET RECOMMENDATIONS
-    # ----------------------------------------------------
+# Compute cosine similarity and obtain recommendations.
     
-    # Compute similarities against the hybrid PAID target matrix
+    # Compute similarities and compare with the paid target matrix
     paid_similarities = cosine_similarity(query_vector_paid, X_paid).flatten()
     df_paid_results = df_paid_topten.copy()
     df_paid_results['similarity_score'] = paid_similarities
     
-    # Filter out inputs to avoid recommending games the user already selected
+    # Filter out inputs
     df_paid_results = df_paid_results[~df_paid_results['Name'].str.strip().str.lower().isin(input_titles_clean)]
-    top_paid = df_paid_results.sort_values(by='similarity_score', ascending=False).head(8)
+    top_paid = df_paid_results.sort_values(by = 'similarity_score', ascending = False).head(8)
 
-    # Compute similarities against the hybrid FREE target matrix
+    # Compute similarities and compare against the free target matrix.
     free_similarities = cosine_similarity(query_vector_free, X_free).flatten()
     df_free_results = df_free_topten.copy()
     df_free_results['similarity_score'] = free_similarities
     
     # Filter out inputs
     df_free_results = df_free_results[~df_free_results['Name'].str.strip().str.lower().isin(input_titles_clean)]
-    top_free = df_free_results.sort_values(by='similarity_score', ascending=False).head(2)
+    top_free = df_free_results.sort_values(by = 'similarity_score', ascending = False).head(2)
 
     return top_paid, top_free, None
 
+    
+
+# ---------Recommender architecture ends: taken as-it-is from recommender.ipynb-----------   
+
+    
+# Generate html links for recommendations.
 
 def render_game_card(game_row):
-    """Generates custom HTML for a clickable grid card featuring the Steam header image and name."""
+    
     name = game_row['Name']
     website = game_row['Website']
     header_image = game_row['Header image']
@@ -252,60 +251,55 @@ def render_game_card(game_row):
     return card_html
 
 
-# ------------------------------------------------------------------
-# SIDEBAR CONTROLS & INFO
-# ------------------------------------------------------------------
+# Sidebar 
+
 with st.sidebar:
-    # 1. Centered "About the Engine" Heading
-    st.markdown("<h1 style='text-align: center;'>About the Engine</h1>", unsafe_allow_html=True)
+    
+    # Centered "About the Engine" heading.
+    st.markdown("<h1 style = 'text-align: center;'>About the Engine</h1>", unsafe_allow_html = True)
     
     # Justified app description
     st.markdown("""
-    <div style="text-align: justify;">
-    This content-based recommender system maps the underlying <b>thematic feel and mechanics</b> 
-    of games using cosine similarity on processed gameplay characteristics and quality metrics. 
-    It accepts up to 3 games as <b>input</b> and outputs <b>10</b> high-quality recommendations: 
-    8 premium (paid) and 2 free-to-play. Please click <a href="https://github.com/shujoshi-git/steam-games-recommender" target="_blank" style="color: #66c0f4; text-decoration: underline; font-weight: bold;">here</a> to learn more about the architecture of this recommender system. 
+    <div style = "text-align: justify;">
+    This content-based recommender system maps the underlying <b>thematic feel and mechanics</b> of games using cosine similarity on processed gameplay characteristics and quality metrics. It accepts up to 3 games as <b>input</b> and outputs <b>10</b> high-quality recommendations: 8 premium (paid) and 2 free-to-play. Please click <a href = "https://github.com/shujoshi-git/steam-games-recommender" target = "_blank" style ="color: #66c0f4; text-decoration: underline; font weight: bold;">here</a> to learn more about the architecture of this recommender system. 
     </div>
-    """, unsafe_allow_html=True)
+    """, unsafe_allow_html =True)
     
     st.write("---")
     
-    # 2. Centered "About Me" Heading
-    st.markdown("<h3 style='text-align: center;'> About Me</h3>", unsafe_allow_html=True)
+    # Centered "About Me" heading.
+    st.markdown("<h3 style='text-align: center;'> About Me</h3>", unsafe_allow_html = True)
     st.markdown("""
-    <div style="text-align: justify;">
+    <div style = "text-align: justify;">
     <b>Shubham Joshi, Ph.D.</b><br/>
-    <i>Applied scientist with expertise in data science and machine learning. In a past life, I was a mathematician who studied beautiful shapes called fractals.</i>
+    <i> Applied scientist with expertise in data science and machine learning. In a past life, I was a mathematician who studied beautiful shapes called fractals.</i>
     </div>
-    """, unsafe_allow_html=True)
+    """, unsafe_allow_html = True)
     
-    # Clean social/portfolio links (centered to align beautifully below the heading)
+    # Links.
     st.markdown("""
-    <div style="display: flex; gap: 15px; justify-content: center; margin-top: 15px;">
-        <a href="https://github.com/shujoshi-git" target="_blank" style="text-decoration: none; color: #66c0f4; font-weight: bold;"> GitHub</a>
-        <a href="https://www.linkedin.com/in/shubham-joshi-ph-d-1625b626b/" target="_blank" style="text-decoration: none; color: #66c0f4; font-weight: bold;"> LinkedIn</a>
-        <a href="mailto:shujoshi.work@gmail.com" style="text-decoration: none; color: #66c0f4; font-weight: bold;"> Email</a>
+    <div style = "display: flex; gap: 15px; justify-content: center; margin-top: 15px;">
+        <a href = "https://github.com/shujoshi-git" target="_blank" style="text-decoration: none; color: #66c0f4; font-weight: bold;"> GitHub</a>
+        <a href = "https://www.linkedin.com/in/shubham-joshi-ph-d-1625b626b/" target="_blank" style="text-decoration: none; color: #66c0f4; font-weight: bold;"> LinkedIn</a>
+        <a href = "mailto:shujoshi.work@gmail.com" style="text-decoration: none; color: #66c0f4; font-weight: bold;"> Email</a>
     </div>
-    """, unsafe_allow_html=True)
+    """, unsafe_allow_html = True)
 
 
-# ------------------------------------------------------------------
-# MAIN UI
-# ------------------------------------------------------------------
+# UI
 
-st.markdown("<h1 style='text-align: center;'>🎮 Shubham Joshi's Steam Game Discovery Engine</h1>", unsafe_allow_html=True)
-st.markdown("<h3 style='text-align: center; color: #a2b0c4; font-weight: normal; margin-bottom: 25px;'>Tell us what you play. We'll show you what to play next.</h3>", unsafe_allow_html=True)
+st.markdown("<h1 style = 'text-align: center;'>🎮 Steam Games Discovery Engine</h1>", unsafe_allow_html = True)
+st.markdown("<h3 style = 'text-align: center; color: #a2b0c4; font-weight: normal; margin-bottom: 25px;'>Tell us what you play. We'll show you what to play next.</h3>", unsafe_allow_html = True)
+
+
+# Order games to starting with letters first, followed by numbers and then special characters.
 
 
 def sort_games_key(name):
-    """
-    Groups game titles to start with letters (A-Z), 
-    followed by numbers (0-9), and finally special characters.
-    """
+
     name_str = str(name).strip()
     if not name_str:
-        return (3, "")  # Empty names at the absolute bottom
+        return (3, "")  # Empty names at the very bottom.
     
     first_char = name_str[0]
     
@@ -317,37 +311,30 @@ def sort_games_key(name):
         return (2, name_str.lower())
 
 
-# Extract unique game names and apply the custom sorting key
-all_available_games = sorted(df_clean['Name'].unique().tolist(), key=sort_games_key)
+# Extract unique game names and apply the sorting.
+all_available_games = sorted(df_clean['Name'].unique().tolist(), key = sort_games_key)
 
-# Wrap the input controls in a clean, subtle container card
-with st.container(border=True):
+# Input controls.
+with st.container(border = True):
     st.markdown("### 🔍 Select up to **3 games**")
     
-    selected_games = st.multiselect(
-        "Start typing to search and select games from our database over over 100,000 PC games available on Steam:",
-        options=all_available_games,
-        max_selections=3,
-        placeholder="Type to search games..."
-    )
+    selected_games = st.multiselect("Start typing to search and select games from our database over over 100,000 PC games available on Steam:", options = all_available_games, max_selections = 3, placeholder ="Type to search games...")
     
-    # Right-align the button by using a wide empty column on the left
+    # Right-align the generate recs button.
     _, col_btn = st.columns([3, 1])
     with col_btn:
-        run_button = st.button("Generate Recommendations", type="primary", use_container_width=True)
+        run_button = st.button("Generate Recommendations", type = "primary", use_container_width= True)
 
-# Execute core recommendation routine upon click
+# Execute recommendation algorithm when "Recommend Games" button is clicked.
 if run_button:
     if len(selected_games) == 0:
         st.warning("Please select at least one game to get started!")
     else:
-        with st.spinner("Analyzing gameplay characteristics and searching the catalogs..."):
-            # Execute recommender
-            top_paid, top_free, message = recommend_games(
-                selected_games, df_paid_topten, X_paid, df_free_topten, X_free, df_clean, char_vectorizer, df_topten
-            )
+        with st.spinner("Baking recommendations..."):
             
-            # Display warning/info message if fallback was triggered or spelling check is needed
+            top_paid, top_free, message = recommend_games(selected_games, df_paid_topten, X_paid, df_free_topten, X_free, df_clean, char_vectorizer)
+            
+            # Display warning message if needed.
             if message:
                 if "spelling" in message:
                     st.error(message)
@@ -357,38 +344,34 @@ if run_button:
             else:
                 st.success(f"Recommendations successfully generated based on: **{', '.join(selected_games)}**")
             
-            # --- DISPLAY 8 PAID RECOMMENDATIONS ---
+            # Display 8 paid recommendations.
             st.write("---")
-            # 3. Centered "Top Premium Recommendations" Heading
-            st.markdown("<h2 style='text-align: center;'> Top Premium Recommendations</h2>", unsafe_allow_html=True)
-            st.write("")  # Adds small visual spacing
             
-            # 4 columns for a clean visual grid layout of 8 games (2 rows of 4)
+            # Center the heading.
+            st.markdown("<h2 style = 'text-align: center;'> Top Premium Recommendations</h2>", unsafe_allow_html = True)
+            st.write("")  # Adds small visual spacing.
+            
+            # 2 rows of 4 games each layout.
             cols_paid = st.columns(4)
             for index, (_, row) in enumerate(top_paid.iterrows()):
                 with cols_paid[index % 4]:
-                    st.markdown(render_game_card(row), unsafe_allow_html=True)
+                    st.markdown(render_game_card(row), unsafe_allow_html = True)
             
-            # --- DISPLAY 2 FREE RECOMMENDATIONS ---
+            # Display 2 free recommendations.
             st.write("---")
-            # 4. Centered "Top Free-to-Play Recommendations" Heading
-            st.markdown("<h2 style='text-align: center;'> Top Free-to-Play Recommendations</h2>", unsafe_allow_html=True)
+            # Centerthe heading.
+            st.markdown("<h2 style = 'text-align: center;'> Top Free-to-Play Recommendations</h2>", unsafe_allow_html = True)
             st.write("")  # Adds small visual spacing
             
-            # 2 columns for a clean visual representation of the 2 free games
+            # 2 rows of 2 games each.
             cols_free = st.columns(2)
             for index, (_, row) in enumerate(top_free.iterrows()):
                 with cols_free[index % 2]:
-                    st.markdown(render_game_card(row), unsafe_allow_html=True)
+                    st.markdown(render_game_card(row), unsafe_allow_html = True)
 
-# ------------------------------------------------------------------
-# ACKNOWLEDGEMENT & DISCLAIMER (At the very bottom of the page)
-# ------------------------------------------------------------------
+# Add acknowledgement.
+
 st.write("---")
 with st.container():
-    st.caption(
-        "**Acknowledgements:** "
-        "This discovery engine is a portfolio project built utilizing publically avaiable video game metadata found on Kaggle and sourced from Steam. "
-        "It is designed solely for educational, non-commercial purposes. All registered trademarks, logos, and game artwork are the property "
-        "of their respective owners."
-    )
+    st.caption("**Acknowledgements**: This discovery engine is a portfolio project built utilizing publically avaiable video game metadata found on Kaggle and sourced from Steam. It is designed solely for educational, non-commercial purposes. All registered trademarks, logos, and game artwork are the property of their respective owners.")
+    
