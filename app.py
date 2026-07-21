@@ -261,7 +261,7 @@ with st.sidebar:
     # Justified app description
     st.markdown("""
     <div style = "text-align: justify;">
-    This content-based recommender system maps the underlying <b>thematic feel and mechanics</b> of games using cosine similarity on processed gameplay characteristics and quality metrics. It accepts up to 3 games as <b>input</b> and outputs <b>10</b> high-quality recommendations: 8 premium (paid) and 2 free-to-play. Please click <a href = "https://github.com/shujoshi-git/steam-games-recommender" target = "_blank" style ="color: #66c0f4; text-decoration: underline; font weight: bold;">here</a> to learn more about the architecture of this recommender system. 
+    This content-based recommender system maps the underlying <b>thematic feel and mechanics</b> of games using cosine similarity on processed gameplay characteristics and quality metrics. It accepts up to 3 games as <b>input</b> and outputs <b>10</b> high-quality recommendations: 8 premium (paid) and 2 free-to-play. Please click <a href = "https://github.com/shujoshi-git/steam-games-recommender/blob/d0e5f1d496df2f7b2ca0668a763018279d0fff34/notebooks/recommender.ipynb" target = "_blank" style ="color: #66c0f4; text-decoration: underline; font weight: bold;">here</a> to learn more about the architecture of this recommender system. 
     </div>
     """, unsafe_allow_html =True)
     
