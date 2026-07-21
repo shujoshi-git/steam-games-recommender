@@ -1,6 +1,6 @@
 steam-games-recommender
 
-**Live App Demo**: [![Streamlit App](https://img.shields.io/badge/Launch-Streamlit%20App-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://shujoshi-steam-recommender.streamlit.app/)
+**Live App Demo**: [Steam Games Recommender](https://shujoshi-steam-recommender.streamlit.app/).
 
 **Goal**: The goal of this project is to build an end-to-end content-based Recommender System (RS) for video games using a dataset of over 120,000 PC video games available on Steam. Along the way, we answer several insightful business questions. Finally, we deploy the recommender system as an app using Streamlit. 
 
