@@ -4,9 +4,9 @@ steam-games-recommender
 
 **Logistics**:
 
-* [`notebooks/data_business.ipynb`](./notebooks/data_business.ipynb): Walks through the entire data science pipeline: from raw metadata cleaning and exploratory data analysis to answering key business insights.
+* [notebooks/data_business.ipynb](./notebooks/data_business.ipynb): Walks through the entire data science pipeline: from raw metadata cleaning and exploratory data analysis to answering key business insights.
 
-* [`notebooks/recommender.ipynb`](./notebooks/recommender.ipynb): Covers the design and execution of the RS architecture, followed by both qualitative evaluation (relevance and serendipity) and quantitative evaluation (using Recall, ILD and novelty.)
+* [notebooks/recommender.ipynb](./notebooks/recommender.ipynb): Covers the design and execution of the RS architecture, followed by both qualitative evaluation (relevance and serendipity) and quantitative evaluation (using Recall, ILD and novelty.)
 
 * [app.py](/app.py): Deploys the production ready recommendation algorithm as a web application to Streamlit. 
 
