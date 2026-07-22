@@ -1,4 +1,4 @@
-steam-games-recommender
+Video Game Recommender, Business Analytics & Web App 
 
 **Live App Demo**: [Steam Games Recommender](https://shujoshi-steam-recommender.streamlit.app/).
 
