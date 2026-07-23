@@ -39,19 +39,20 @@ st.markdown(
 
 @st.cache_data
 def load_data():
+    base_url = "https://github.com/shujoshi-git/steam-games-recommender/releases/latest/download/"
     
-    df_clean = pd.read_csv('data/games_clean.csv') 
-    df_topten = pd.read_csv('data/df_topten.csv')
-    df_free_topten = pd.read_csv('data/df_free_topten.csv')
-    df_paid_topten = pd.read_csv('data/df_paid_topten.csv')
-    print(df_clean.columns)
+    df_clean = pd.read_csv(base_url + "games_clean.csv")
+    df_topten = pd.read_csv(base_url + "df_topten.csv")
+    df_free_topten = pd.read_csv(base_url + "df_free_topten.csv")
+    df_paid_topten = pd.read_csv(base_url + "df_paid_topten.csv")
+    
     # Fill empty characteristics strings.
     df_clean['Characteristics'] = df_clean['Characteristics'].fillna('')
     df_topten['Characteristics'] = df_topten['Characteristics'].fillna('')
     df_paid_topten['Characteristics'] = df_paid_topten['Characteristics'].fillna('')
     df_free_topten['Characteristics'] = df_free_topten['Characteristics'].fillna('')
     
-    return df_clean, df_paid_topten, df_free_topten, df_topten
+    return df_clean, df_topten, df_free_topten, df_paid_topten
 
 
     
@@ -62,7 +63,7 @@ def load_data():
 
 # This function builds the matrices that the RS will accept onto which it can compute cosine similarity.
 
-def build_matrices(df_clean, df_paid_topten, df_free_topten):
+def build_matrices(df_clean, df_topten, df_paid_topten, df_free_topten):
     char_vectorizer = CountVectorizer(token_pattern = r'(?u)\b\w+\b') 
     char_vectorizer.fit(df_topten['Characteristics'].fillna(''))
 
@@ -99,7 +100,7 @@ def build_matrices(df_clean, df_paid_topten, df_free_topten):
 
 # Initialize data and models.
 df_clean, df_paid_topten, df_free_topten, df_topten = load_data()
-char_vectorizer, X_paid, X_free = build_matrices(df_clean, df_paid_topten, df_free_topten)
+char_vectorizer, X_paid, X_free = build_matrices(df_clean, df_topten, df_paid_topten, df_free_topten)
 
 # Recommender algorithm: Recommends 8 paid games and 2 free games based on a list of input games.
 
