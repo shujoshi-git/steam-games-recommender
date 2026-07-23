@@ -1,4 +1,4 @@
-**Live App Demo**: [Steam Games Recommender](https://shujoshi-steam-recommender.streamlit.app/).
+**Live App Demo**: [Steam Games Recommender](https://games-recommender.streamlit.app/).
 
 # **Video Game Recommender, Business Analytics & Web App**
 
@@ -12,7 +12,7 @@
 
 * [app.py](/app.py): Deploys the production ready recommendation algorithm as a web application to Streamlit. 
 
-* Interactive Web App: You can test the live recommender here: [Steam Games Recommender](https://shujoshi-steam-recommender.streamlit.app/).
+* Interactive Web App: You can test the live recommender here: [Steam Games Recommender](https://games-recommender.streamlit.app/).
 
 **High-level overview of the Recommender System**:
 
