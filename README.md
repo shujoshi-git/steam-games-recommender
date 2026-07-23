@@ -1,10 +1,7 @@
-<<<<<<< Updated upstream
-Video Game Recommender, Business Analytics & Web App 
-
 **Live App Demo**: [Steam Games Recommender](https://shujoshi-steam-recommender.streamlit.app/).
-=======
+
 # **Video Game Recommender, Business Analytics & Web App**
->>>>>>> Stashed changes
+
 
 **Goal**: The goal of this project is to build an end-to-end content-based Recommender System (RS) for video games using a dataset of over 120,000 PC video games available on Steam. Along the way, we answer several insightful business questions. Finally, we deploy the recommender system as an app using Streamlit. 
 
