@@ -101,7 +101,6 @@ def build_matrices(df_clean, df_paid_topten, df_free_topten):
 df_clean, df_paid_topten, df_free_topten, df_topten = load_data()
 char_vectorizer, X_paid, X_free = build_matrices(df_clean, df_paid_topten, df_free_topten)
 
-
 # Recommender algorithm: Recommends 8 paid games and 2 free games based on a list of input games.
 
 

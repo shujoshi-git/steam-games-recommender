@@ -44,7 +44,7 @@ def load_data():
     df_topten = pd.read_csv('data/df_topten.csv')
     df_free_topten = pd.read_csv('data/df_free_topten.csv')
     df_paid_topten = pd.read_csv('data/df_paid_topten.csv')
-    
+    print(df_clean.columns)
     # Fill empty characteristics strings.
     df_clean['Characteristics'] = df_clean['Characteristics'].fillna('')
     df_topten['Characteristics'] = df_topten['Characteristics'].fillna('')
@@ -100,7 +100,6 @@ def build_matrices(df_clean, df_paid_topten, df_free_topten):
 # Initialize data and models.
 df_clean, df_paid_topten, df_free_topten, df_topten = load_data()
 char_vectorizer, X_paid, X_free = build_matrices(df_clean, df_paid_topten, df_free_topten)
-print (df_clean.columns)
 
 # Recommender algorithm: Recommends 8 paid games and 2 free games based on a list of input games.
 
